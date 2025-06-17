@@ -1,5 +1,5 @@
 try:
-    import soxbindings as sox 
+    import soxbindings as sox
 except: # pragma: no cover
     import sox # pragma: no cover
 import soundfile
@@ -111,12 +111,12 @@ def generate_from_jams(jams_infile,
         and/or bg_path.
     save_isolated_events : bool
         If True, this will save the isolated event audio in a directory adjacent to the generated soundscape
-        mixture, or to the path defined by `isolated_events_path`. The audio of the isolated events sum 
-        up to the mixture if reverb is not applied. Isolated events can be found 
+        mixture, or to the path defined by `isolated_events_path`. The audio of the isolated events sum
+        up to the mixture if reverb is not applied. Isolated events can be found
         (by default) at `<audio_outfile parent folder>/<audio_outfile name>_events`.
         Isolated event file names follow the pattern: `<role><idx>_<label>`, where idx
-        is the index of the isolated event in 
-        self.fg_spec or self.bg_spec (this allows events of the same label to be added more than 
+        is the index of the isolated event in
+        self.fg_spec or self.bg_spec (this allows events of the same label to be added more than
         once to the soundscape without breaking things). Role is "background" or "foreground".
         For example: `foreground0_siren.wav` or `background0_park.wav`.
     isolated_events_path : str
@@ -216,7 +216,7 @@ def generate_from_jams(jams_infile,
             "using duration field instead. This can lead to incorrect behavior "
             "if generating from a jams file that has been trimmed previously.",
             ScaperWarning)
-    
+
     protected_labels = ann.sandbox.scaper['protected_labels']
     sc = Scaper(duration, new_fg_path, new_bg_path, protected_labels)
 
@@ -260,7 +260,7 @@ def generate_from_jams(jams_infile,
                            save_isolated_events=save_isolated_events,
                            isolated_events_path=isolated_events_path,
                            disable_sox_warnings=disable_sox_warnings)
-    
+
     # TODO: Stick to heavy handed overwriting for now, in the future we
     #  should consolidate this with what happens inside _instantiate().
     ann.sandbox.scaper.reverb = reverb
@@ -273,7 +273,7 @@ def generate_from_jams(jams_infile,
     ann.sandbox.scaper.peak_normalization_scale_factor = scale_factor
     ann.sandbox.scaper.ref_db_change = ref_db_change
     ann.sandbox.scaper.ref_db_generated = sc.ref_db + ref_db_change
-    
+
     # If there are slice (trim) operations, need to perform them!
     # Need to add this logic for the isolated events too.
     if 'slice' in ann.sandbox.keys():
@@ -469,7 +469,7 @@ def _validate_distribution(dist_tuple):
                 'The "choose" distribution tuple must be of length 2 where '
                 'the second item is a list.')
     # If it's a choose_weighted, tuple must be of length 3, items 2 and 3 must
-    # be lists of the same length, and the list in item 3 must contain floats 
+    # be lists of the same length, and the list in item 3 must contain floats
     # in the range [0, 1] that sum to 1 (i.e. valid probabilities).
     elif dist_tuple[0] == 'choose_weighted':
         if len(dist_tuple) != 3:
@@ -530,9 +530,9 @@ def _validate_distribution(dist_tuple):
 def _ensure_satisfiable_source_time_tuple(source_time, source_duration, event_duration):
     '''
     Modify a source_time distribution tuple according to the duration of the
-    source and the duration of the event. This allows you to sample from 
+    source and the duration of the event. This allows you to sample from
     anywhere in a source file without knowing the exact duration of every
-    source file. 
+    source file.
 
     Parameters
     ----------
@@ -583,7 +583,7 @@ def _ensure_satisfiable_source_time_tuple(source_time, source_duration, event_du
         if (source_time[1] == source_time[2]):
             # switch to const
             source_time = ['const', source_time[1]]
-        
+
     # If it's a normal distribution, we change the mean of the distribution to
     # source_duration - event_duration if source_duration - mean < event_duration.
     elif source_time[0] == 'normal':
@@ -591,7 +591,7 @@ def _ensure_satisfiable_source_time_tuple(source_time, source_duration, event_du
             source_time[1] = max(0, source_duration - event_duration)
 
     # If it's a truncated normal distribution, we change the mean as we did above for a
-    # normal distribution, and change the max (5th item) to 
+    # normal distribution, and change the max (5th item) to
     # source_duration - event_duration if it's bigger. If the min is out of bounds, we
     # change it like in the uniform case.
     elif source_time[0] == 'truncnorm':
@@ -604,7 +604,7 @@ def _ensure_satisfiable_source_time_tuple(source_time, source_duration, event_du
         if (source_time[3] == source_time[4]):
             # switch to const
             source_time = ['const', source_time[1]]
-    
+
     source_time = tuple(source_time)
     # check if the source_time changed from the old_source_time to throw a warning.
     # it gets set here but the warning happens after the return from this call
@@ -999,7 +999,7 @@ class Scaper(object):
         Path to foreground folder.
     bg_path : str
         Path to background folder.
-    protected_labels : list 
+    protected_labels : list
         Provide a list of protected foreground labels. When a foreground
         label is in the protected list it means that when a sound event
         matching the label gets added to a soundscape instantiation the
@@ -1010,10 +1010,10 @@ class Scaper(object):
         before the sound event ends, for example an animal vocalization
         such as a dog bark.
     random_state : int, RandomState instance or None, optional (default=None)
-        If int, random_state is the seed used by the random number 
-        generator; If RandomState instance, random_state is the random number 
-        generator; If None, the random number generator is the RandomState 
-        instance used by np.random. Note that if the random state is passed as a 
+        If int, random_state is the seed used by the random number
+        generator; If RandomState instance, random_state is the random number
+        generator; If None, the random number generator is the RandomState
+        instance used by np.random. Note that if the random state is passed as a
         RandomState instance, it is passed by reference, not value. This will lead to
         the Scaper object advancing the state of the random state object if you use
         it elsewhere.
@@ -1031,7 +1031,7 @@ class Scaper(object):
             Path to foreground folder.
         bg_path : str
             Path to background folder.
-        protected_labels : list 
+        protected_labels : list
             Provide a list of protected foreground labels. When a foreground
             label is in the protected list it means that when a sound event
             matching the label gets added to a soundscape instantiation the
@@ -1042,10 +1042,10 @@ class Scaper(object):
             before the sound event ends, for example an animal vocalization
             such as a dog bark.
         random_state : int, RandomState instance or None, optional (default=None)
-            If int, random_state is the seed used by the random number 
-            generator; If RandomState instance, random_state is the random number 
-            generator; If None, the random number generator is the RandomState 
-            instance used by np.random. Note that if the random state is passed as a 
+            If int, random_state is the seed used by the random number
+            generator; If RandomState instance, random_state is the random number
+            generator; If None, the random number generator is the RandomState
+            instance used by np.random. Note that if the random state is passed as a
             RandomState instance, it is passed by reference, not value. This will lead to
             the Scaper object advancing the state of the random state object if you use
             it elsewhere.
@@ -1122,9 +1122,9 @@ class Scaper(object):
         Parameters
         ----------
         random_state : int, RandomState instance or None, optional (default=None)
-            If int, random_state is the seed used by the random number 
-            generator; If RandomState instance, random_state is the random number 
-            generator; If None, the random number generator is the RandomState 
+            If int, random_state is the seed used by the random number
+            generator; If RandomState instance, random_state is the random number
+            generator; If None, the random number generator is the RandomState
             instance used by np.random.
         '''
         self.random_state = _check_random_state(random_state)
@@ -1190,14 +1190,14 @@ class Scaper(object):
         * ``("normal", mean, stddev)`` : sample a random value from a
           normal distribution defined by its mean ``mean`` and
           standard deviation ``stddev``.
-        * ``("truncnorm", mean, stddev, min, max)``: sapmle a random value from 
+        * ``("truncnorm", mean, stddev, min, max)``: sapmle a random value from
         a truncated normal distribution defined by its mean ``mean``, standard
         deviation ``stddev``, minimum value ``min`` and maximum value ``max``.
 
         IMPORTANT: not all parameters support all distribution tuples. In
         particular, ``label`` and ``source_file`` only support ``"const"``,
-        ``"choose"`` and ``choose_weighted``, whereas ``source_time`` supports 
-        all distribution tuples. As noted above, only ``label`` and ``source_file`` 
+        ``"choose"`` and ``choose_weighted``, whereas ``source_time`` supports
+        all distribution tuples. As noted above, only ``label`` and ``source_file``
         support providing an empty ``valuelist`` with ``"choose"``.
         '''
 
@@ -1309,14 +1309,14 @@ class Scaper(object):
         * ``("normal", mean, stddev)`` : sample a random value from a
           normal distribution defined by its mean ``mean`` and
           standard deviation ``stddev``.
-        * ``("truncnorm", mean, stddev, min, max)``: sapmle a random value from 
+        * ``("truncnorm", mean, stddev, min, max)``: sapmle a random value from
         a truncated normal distribution defined by its mean ``mean``, standard
         deviation ``stddev``, minimum value ``min`` and maximum value ``max``.
 
         IMPORTANT: not all parameters support all distribution tuples. In
         particular, ``label`` and ``source_file`` only support ``"const"``,
-        ``"choose"`` and ``"choose_weighted"``, whereas the remaining parameters 
-        support all distribution tuples. As noted above, only ``label`` and 
+        ``"choose"`` and ``"choose_weighted"``, whereas the remaining parameters
+        support all distribution tuples. As noted above, only ``label`` and
         ``source_file`` support providing an empty ``valuelist`` with ``"choose"``.
 
         See Also
@@ -1473,7 +1473,7 @@ class Scaper(object):
         # Get the duration of the source audio file
         source_duration = soundfile.info(source_file).duration
 
-        # If this is a background event, the event duration is the 
+        # If this is a background event, the event duration is the
         # duration of the soundscape.
         if isbackground:
             event_duration = self.duration
@@ -1486,7 +1486,7 @@ class Scaper(object):
             # For background events the duration is fixed to self.duration
             # (which must be > 0), but for foreground events it could
             # potentially be non-positive, hence the loop.
-            event_duration = -np.Inf
+            event_duration = -np.inf
             while event_duration <= 0:
                 event_duration = _get_value_from_dist(
                     event.event_duration, self.random_state
@@ -1509,7 +1509,7 @@ class Scaper(object):
             time_stretch = None
             event_duration_stretched = event_duration
         else:
-            time_stretch = -np.Inf
+            time_stretch = -np.inf
             while time_stretch <= 0:
                 time_stretch = _get_value_from_dist(
                     event.time_stretch, self.random_state
@@ -1548,18 +1548,18 @@ class Scaper(object):
                         ScaperWarning)
 
         # Modify event.source_time so that sampling from the source time distribution
-        # stays within the bounds of the audio file - event_duration. This allows users 
-        # to sample from anywhere in a source file without knowing the exact duration 
+        # stays within the bounds of the audio file - event_duration. This allows users
+        # to sample from anywhere in a source file without knowing the exact duration
         # of every source file. Only modify if label is not in protected labels.
         if label not in self.protected_labels:
             tuple_still_invalid = False
             modified_source_time, warn = _ensure_satisfiable_source_time_tuple(
                 event.source_time, source_duration, event_duration
             )
-            
+
             # determine source time and also check again just in case (for normal dist).
             # if it happens again, just use the old method.
-            source_time = -np.Inf
+            source_time = -np.inf
             while source_time < 0:
                 source_time = _get_value_from_dist(
                     modified_source_time, self.random_state)
@@ -1576,8 +1576,8 @@ class Scaper(object):
                         "{:s} source time tuple ({:s}) could not be satisfied given "
                         "source duration ({:.2f}) and event duration ({:.2f}), "
                         "source time tuple changed to ({:s})".format(
-                            label, old_source_time, source_duration, 
-                            event_duration, new_source_time), 
+                            label, old_source_time, source_duration,
+                            event_duration, new_source_time),
                         ScaperWarning)
                 else:
                     warnings.warn(
@@ -1586,7 +1586,7 @@ class Scaper(object):
                         "source time tuple changed to ({:s}) but was still not "
                         "satisfiable, likely due to using 'normal' distribution with "
                         "bounds too close to the start or end of the audio file".format(
-                            label, old_source_time, source_duration, 
+                            label, old_source_time, source_duration,
                             event_duration, new_source_time),
                         ScaperWarning)
         else:
@@ -1595,7 +1595,7 @@ class Scaper(object):
         # determine event time
         # for background events the event time is fixed to 0, but for
         # foreground events it's not.
-        event_time = -np.Inf
+        event_time = -np.inf
         while event_time < 0:
             event_time = _get_value_from_dist(
                 event.event_time, self.random_state
@@ -1848,7 +1848,7 @@ class Scaper(object):
             factor that was used is returned.
         quick_pitch_time : bool
             When True (default=False), time stretching and pitch shifting will be
-            applied with `quick=True`. This is much faster but the resultant 
+            applied with `quick=True`. This is much faster but the resultant
             audio is generally of lower audio quality.
         save_isolated_events : bool
             If True, this will save the isolated foreground events and
@@ -1952,7 +1952,7 @@ class Scaper(object):
                         tmpfiles_internal.append(
                             tempfile.NamedTemporaryFile(
                                 suffix='.wav', delete=False))
-                        # read in background off disk, using start and stop 
+                        # read in background off disk, using start and stop
                         # to only read the necessary audio
                         event_sr = soundfile.info(e.value['source_file']).samplerate
                         start = int(e.value['source_time'] * event_sr)
@@ -2010,8 +2010,8 @@ class Scaper(object):
                         tmpfiles_internal.append(
                             tempfile.NamedTemporaryFile(
                                 suffix='.wav', delete=False))
-                        
-                        # synthesize edited foreground sound event, 
+
+                        # synthesize edited foreground sound event,
                         # doing the trim via soundfile
                         event_sr = soundfile.info(e.value['source_file']).samplerate
                         start = int(e.value['source_time'] * event_sr)
@@ -2024,7 +2024,7 @@ class Scaper(object):
                             sample_rate_in=event_sr
                         )
                         event_audio = event_audio.reshape(-1, self.n_channels)
-                        
+
                         # NOW compute LUFS
                         fg_lufs = get_integrated_lufs(event_audio, self.sr)
 
@@ -2049,7 +2049,7 @@ class Scaper(object):
                         # soundscape duration
                         prepad = int(self.sr * e.value['event_time'])
                         postpad = max(0, duration_in_samples - (event_audio.shape[0] + prepad))
-                        event_audio = np.pad(event_audio, ((prepad, postpad), (0, 0)), 
+                        event_audio = np.pad(event_audio, ((prepad, postpad), (0, 0)),
                             mode='constant', constant_values=(0, 0))
                         event_audio = event_audio[:duration_in_samples]
 
@@ -2065,7 +2065,7 @@ class Scaper(object):
                 warnings.warn(
                     "No events to synthesize (silent soundscape), no audio "
                     "generated.", ScaperWarning)
-            else:                        
+            else:
 
                 # Sum all events to get soundscape audio
                 soundscape_audio = sum(event_audio_list)
@@ -2164,7 +2164,7 @@ class Scaper(object):
         #  metadata is stored (cf. generate() and generate_from_jams()).
         ann.sandbox.scaper.soundscape_audio_path = audio_path
         ann.sandbox.scaper.isolated_events_audio_path = isolated_events_audio_path
-        
+
         # Return audio for in-memory processing
         return soundscape_audio, event_audio_list, scale_factor, ref_db_change
 
@@ -2231,7 +2231,7 @@ class Scaper(object):
             when extreme scaling is required to achieve peak normalization.
         quick_pitch_time : bool
             When True (default=False), time stretching and pitch shifting will be
-            applied with `quick=True`. This is much faster but the resultant 
+            applied with `quick=True`. This is much faster but the resultant
             audio is generally of lower audio quality.
         save_isolated_events : bool
             If True, this will save the isolated foreground events and
@@ -2252,7 +2252,7 @@ class Scaper(object):
             if save_isolated_events=True.
         disable_sox_warnings : bool
             When True (default), warnings from the pysox module are suppressed
-            unless their level is ``'CRITICAL'``. If you're experiencing issues related 
+            unless their level is ``'CRITICAL'``. If you're experiencing issues related
             to audio I/O setting this parameter to False may help with debugging.
         no_audio : bool
             If True this function will only generates a JAMS file but will not
@@ -2355,7 +2355,7 @@ class Scaper(object):
         ann.sandbox.scaper.peak_normalization_scale_factor = scale_factor
         ann.sandbox.scaper.ref_db_change = ref_db_change
         ann.sandbox.scaper.ref_db_generated = self.ref_db + ref_db_change
-        
+
         # Save JAMS to disk too
         if jams_path is not None:
             soundscape_jam.save(jams_path)
