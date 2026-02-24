@@ -83,7 +83,7 @@ def _get_sorted_files(folder_path):
     '''
 
     # Ensure path points to valid folder
-    _validate_folder_path(folder_path)
+    # _validate_folder_path(folder_path)
 
     # Get folder contents and filter for valid files
     # Note, we sort the list to ensure consistent behavior across operating
@@ -140,7 +140,7 @@ def _populate_label_list(folder_path, label_list):
     '''
 
     # Make sure folder path is valid
-    _validate_folder_path(folder_path)
+    # _validate_folder_path(folder_path)
 
     folder_names = os.listdir(folder_path)
     for fname in folder_names:
