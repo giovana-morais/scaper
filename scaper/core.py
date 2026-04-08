@@ -682,9 +682,9 @@ def _validate_source_file(source_file_tuple, label_tuple):
                 "Source file not found: {:s}".format(source_file_tuple[1]))
         # 2. the label must match the file's parent folder name
         parent_name = os.path.basename(os.path.dirname(source_file_tuple[1]))
-        if label_tuple[0] != "const" or label_tuple[1] != parent_name:
-            raise ScaperError(
-                "Source file's parent folder name does not match label.")
+        # if label_tuple[0] != "const" or label_tuple[1] != parent_name:
+        #     raise ScaperError(
+        #         "Source file's parent folder name does not match label.")
     # Otherwise it must be specified using one of "choose" or "choose_weighted"
     elif source_file_tuple[0] == "choose" or source_file_tuple[0] == "choose_weighted":
         if source_file_tuple[1]:  # list is not empty
@@ -966,7 +966,7 @@ def _validate_event(label, source_file, source_time, event_time,
     _validate_source_file(source_file, label)
 
     # LABEL
-    _validate_label(label, allowed_labels)
+    # _validate_label(label, allowed_labels)
 
     # SOURCE TIME
     _validate_time(source_time)
