@@ -615,8 +615,7 @@ def _ensure_satisfiable_source_time_tuple(source_time, source_duration, event_du
 
 def _validate_label(label, allowed_labels):
     '''
-    Validate that a label tuple is in the right format and that it's values
-    are valid.
+    Validate label format, but do *not* check existence of corresponding folder
 
     Parameters
     ----------
@@ -631,25 +630,12 @@ def _validate_label(label, allowed_labels):
         If the validation fails.
 
     '''
-    # Make sure it's a valid distribution tuple
-    _validate_distribution(label)
 
-    # Make sure it's one of the allowed distributions for a label and that the
-    # label value is one of the allowed labels.
-    if label[0] == "const":
-        if not label[1] in allowed_labels:
-            raise ScaperError(
-                'Label value must match one of the available labels: '
-                '{:s}'.format(str(allowed_labels)))
-    elif label[0] == "choose" or label[0] == "choose_weighted":
-        if label[1]:  # list is not empty
-            if not set(label[1]).issubset(set(allowed_labels)):
-                raise ScaperError(
-                    'Label list provided must be a subset of the available '
-                    'labels: {:s}'.format(str(allowed_labels)))
-    else:
+    if label[0] not in ["const", "choose", "choose_weighted"]:
         raise ScaperError(
             'Label must be specified using a "const" or "choose" tuple.')
+
+    return label
 
 
 def _validate_source_file(source_file_tuple, label_tuple):
@@ -1070,8 +1056,8 @@ class Scaper(object):
         # Validate paths and set
         expanded_fg_path = os.path.expanduser(fg_path)
         expanded_bg_path = os.path.expanduser(bg_path)
-        _validate_folder_path(expanded_fg_path)
-        _validate_folder_path(expanded_bg_path)
+        # _validate_folder_path(expanded_fg_path)
+        # _validate_folder_path(expanded_bg_path)
         self.fg_path = expanded_fg_path
         self.bg_path = expanded_bg_path
 
