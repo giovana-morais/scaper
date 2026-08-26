@@ -32,6 +32,7 @@ from .util import polyphony_gini
 from .util import is_real_number, is_real_array
 from .audio import get_integrated_lufs
 from .audio import peak_normalize
+from .audio import peak_limiter
 from .version import version as scaper_version
 
 
@@ -241,6 +242,13 @@ def generate_from_jams(jams_infile,
     else:
         peak_normalization = False
 
+    if 'limiter' in ann.sandbox.scaper.keys():
+        limiter = ann.sandbox.scaper['limiter']
+    else:
+        # backwards compatibility: jams generated before `limiter` existed
+        # always used peak_normalize
+        limiter = False
+
     if 'quick_pitch_time' in ann.sandbox.scaper.keys():
         quick_pitch_time = ann.sandbox.scaper['quick_pitch_time']
     else:
@@ -256,6 +264,7 @@ def generate_from_jams(jams_infile,
                            reverb=reverb,
                            fix_clipping=fix_clipping,
                            peak_normalization=peak_normalization,
+                           limiter=limiter,
                            quick_pitch_time=quick_pitch_time,
                            save_isolated_events=save_isolated_events,
                            isolated_events_path=isolated_events_path,
@@ -266,6 +275,7 @@ def generate_from_jams(jams_infile,
     ann.sandbox.scaper.reverb = reverb
     ann.sandbox.scaper.fix_clipping = fix_clipping
     ann.sandbox.scaper.peak_normalization = peak_normalization
+    ann.sandbox.scaper.limiter = limiter
     ann.sandbox.scaper.quick_pitch_time = quick_pitch_time
     ann.sandbox.scaper.save_isolated_events = save_isolated_events
     ann.sandbox.scaper.isolated_events_path = isolated_events_path
@@ -1801,6 +1811,7 @@ class Scaper(object):
                         reverb=None,
                         fix_clipping=False,
                         peak_normalization=False,
+                        limiter=False,
                         quick_pitch_time=False,
                         save_isolated_events=False,
                         isolated_events_path=None,
@@ -1821,17 +1832,30 @@ class Scaper(object):
             module at all.
         fix_clipping: bool
             When True (default=False), checks the soundscape audio for clipping
-            (abs(sample) > 1). If so, the soundscape waveform is peak normalized,
-            i.e., scaled such that max(abs(soundscape_audio)) = 1. The audio for
+            (abs(sample) > 1). If so, the soundscape waveform is corrected using
+            peak normalization or a peak limiter (see `limiter`). The audio for
             each isolated event is also scaled accordingly. Note: this will change
             the actual value of `ref_db` in the generated audio. The scaling
             factor that was used is returned.
         peak_normalization : bool
-            When True (default=False), normalize the generated soundscape audio
-            such that max(abs(soundscape_audio)) = 1. The audio for
-            each isolated event is also scaled accordingly. Note: this will change
-            the actual value of `ref_db` in the generated audio. The scaling
-            factor that was used is returned.
+            When True (default=False), corrects the generated soundscape audio
+            using peak normalization or a peak limiter (see `limiter`), regardless
+            of whether it actually clips. The audio for each isolated event is
+            also scaled accordingly. Note: this will change the actual value of
+            `ref_db` in the generated audio. The scaling factor that was used is
+            returned.
+        limiter : bool
+            Selects which correction is used whenever `fix_clipping` or
+            `peak_normalization` triggers a correction. When False (default),
+            uses `peak_normalize`: a single scale factor computed from the
+            loudest sample is applied uniformly to the whole soundscape and
+            every event, so the entire signal is proportionally attenuated.
+            When True, uses `peak_limiter`: a SoX peak limiter is applied to
+            the mixture, only reducing gain during the instants that actually
+            clip; the same per-sample gain envelope is then applied to every
+            event to keep `sum(event_audio_list) == soundscape_audio` exactly
+            true. See `scaper.audio.peak_normalize` and
+            `scaper.audio.peak_limiter` for details.
         quick_pitch_time : bool
             When True (default=False), time stretching and pitch shifting will be
             applied with `quick=True`. This is much faster but the resultant
@@ -2065,29 +2089,56 @@ class Scaper(object):
 
                 if peak_normalization or (clipping and fix_clipping):
 
-                    # normalize soundscape audio and scale event audio
-                    soundscape_audio, event_audio_list, scale_factor = \
-                        peak_normalize(soundscape_audio, event_audio_list)
+                    # correct soundscape audio and scale event audio using
+                    # whichever method was requested
+                    if limiter:
+                        soundscape_audio, event_audio_list, scale_factor = \
+                            peak_limiter(soundscape_audio, event_audio_list, self.sr)
+                    else:
+                        soundscape_audio, event_audio_list, scale_factor = \
+                            peak_normalize(soundscape_audio, event_audio_list)
 
                     ref_db_change = 20 * np.log10(scale_factor)
 
                     if clipping and fix_clipping:
-                        warnings.warn(
-                            'Peak normalization applied to fix clipping with '
-                            'scale factor = {}. The actual ref_db of the '
-                            'generated soundscape audio will change by '
-                            'approximately {:.2f}dB with respect to the target '
-                            'ref_db of {})'.format(
-                                scale_factor, ref_db_change, self.ref_db),
-                            ScaperWarning)
+                        if limiter:
+                            warnings.warn(
+                                'Peak limiting applied to fix clipping, with a '
+                                'worst-case gain reduction of {} (~{:.2f}dB) at '
+                                'the most extreme instant. Unlike peak '
+                                'normalization, this is only applied where the '
+                                'mixture actually clips, so most of the audio is '
+                                'unaffected; only the most extreme instants may '
+                                'dip below the target ref_db of {})'.format(
+                                    scale_factor, ref_db_change, self.ref_db),
+                                ScaperWarning)
+                        else:
+                            warnings.warn(
+                                'Peak normalization applied to fix clipping with '
+                                'scale factor = {}. The actual ref_db of the '
+                                'generated soundscape audio will change by '
+                                'approximately {:.2f}dB with respect to the target '
+                                'ref_db of {})'.format(
+                                    scale_factor, ref_db_change, self.ref_db),
+                                ScaperWarning)
 
                     if scale_factor < 0.05:
-                        warnings.warn(
-                            'Scale factor for peak normalization is extreme '
-                            '(<0.05), event SNR values in the generated soundscape '
-                            'audio may not perfectly match their specified values.',
-                            ScaperWarning
-                        )
+                        if limiter:
+                            warnings.warn(
+                                'Worst-case gain reduction from peak limiting is '
+                                'extreme (<0.05); event SNR values in the '
+                                'generated soundscape audio may not perfectly '
+                                'match their specified values during the most '
+                                'heavily limited instants.',
+                                ScaperWarning
+                            )
+                        else:
+                            warnings.warn(
+                                'Scale factor for peak normalization is extreme '
+                                '(<0.05), event SNR values in the generated soundscape '
+                                'audio may not perfectly match their specified values.',
+                                ScaperWarning
+                            )
 
                 # Optionally apply reverb
                 # NOTE: must apply AFTER peak normalization: applying reverb
@@ -2162,6 +2213,7 @@ class Scaper(object):
                  reverb=None,
                  fix_clipping=False,
                  peak_normalization=False,
+                 limiter=False,
                  quick_pitch_time=False,
                  save_isolated_events=False,
                  isolated_events_path=None,
@@ -2200,21 +2252,34 @@ class Scaper(object):
             module at all.
         fix_clipping: bool
             When True (default=False), checks the soundscape audio for clipping
-            (abs(sample) > 1). If so, the soundscape waveform is peak normalized,
-            i.e., scaled such that max(abs(soundscape_audio)) = 1. The audio for
+            (abs(sample) > 1). If so, the soundscape waveform is corrected using
+            peak normalization or a peak limiter (see `limiter`). The audio for
             each isolated event is also scaled accordingly. Note: this will change
             the actual value of `ref_db` in the generated audio. The updated
             `ref_db` value will be stored in the JAMS annotation. The SNR of
             foreground events with respect to the background is unaffected except
             when extreme scaling is required to prevent clipping.
         peak_normalization : bool
-            When True (default=False), normalize the generated soundscape audio
-            such that max(abs(soundscape_audio)) = 1. The audio for
-            each isolated event is also scaled accordingly. Note: this will change
-            the actual value of `ref_db` in the generated audio. The updated
-            `ref_db` value will be stored in the JAMS annotation. The SNR of
-            foreground events with respect to the background is unaffected except
-            when extreme scaling is required to achieve peak normalization.
+            When True (default=False), corrects the generated soundscape audio
+            using peak normalization or a peak limiter (see `limiter`), regardless
+            of whether it actually clips. The audio for each isolated event is
+            also scaled accordingly. Note: this will change the actual value of
+            `ref_db` in the generated audio. The updated `ref_db` value will be
+            stored in the JAMS annotation. The SNR of foreground events with
+            respect to the background is unaffected except when extreme scaling
+            is required.
+        limiter : bool
+            Selects which correction is used whenever `fix_clipping` or
+            `peak_normalization` triggers a correction. When False (default),
+            uses `peak_normalize`: a single scale factor computed from the
+            loudest sample is applied uniformly to the whole soundscape and
+            every event, so the entire signal is proportionally attenuated.
+            When True, uses `peak_limiter`: a SoX peak limiter is applied to
+            the mixture, only reducing gain during the instants that actually
+            clip; the same per-sample gain envelope is then applied to every
+            event to keep `sum(event_audio_list) == soundscape_audio` exactly
+            true. See `scaper.audio.peak_normalize` and
+            `scaper.audio.peak_limiter` for details.
         quick_pitch_time : bool
             When True (default=False), time stretching and pitch shifting will be
             applied with `quick=True`. This is much faster but the resultant
@@ -2319,6 +2384,7 @@ class Scaper(object):
                                      disable_sox_warnings=disable_sox_warnings,
                                      fix_clipping=fix_clipping,
                                      peak_normalization=peak_normalization,
+                                     limiter=limiter,
                                      quick_pitch_time=quick_pitch_time)
 
         # TODO: Stick to heavy handed overwriting for now, in the future we
@@ -2330,6 +2396,7 @@ class Scaper(object):
         ann.sandbox.scaper.reverb = reverb
         ann.sandbox.scaper.fix_clipping = fix_clipping
         ann.sandbox.scaper.peak_normalization = peak_normalization
+        ann.sandbox.scaper.limiter = limiter
         ann.sandbox.scaper.quick_pitch_time = quick_pitch_time
         ann.sandbox.scaper.save_isolated_events = save_isolated_events
         ann.sandbox.scaper.isolated_events_path = isolated_events_path

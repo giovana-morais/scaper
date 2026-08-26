@@ -2,6 +2,7 @@
 
 from scaper.audio import get_integrated_lufs, match_sample_length
 from scaper.audio import peak_normalize
+from scaper.audio import peak_limiter
 from scaper.util import _close_temp_files
 import numpy as np
 import scipy.signal as sg
@@ -170,3 +171,67 @@ def test_peak_normalize():
                         assert np.allclose(max_sample_event,
                                            A * factor * scale_factor,
                                            atol=1e-3)
+
+
+def test_peak_limiter():
+
+    def sine(x, f, sr, A):
+        return A * np.sin(2 * np.pi * f * x / sr)
+
+    def square(x, f, sr, A):
+        return A * sg.square(2 * np.pi * f * x / sr)
+
+    def saw(x, f, sr, A):
+        return A * sg.sawtooth(2 * np.pi * f * x / sr)
+
+    samplerates = [16000, 44100]
+    frequencies = [100, 1000, 5000]
+    amplitudes = [0.1, 0.5, 1.0, 1.5, 2.0]
+    event_factors = [0.5, 0.8]
+
+    # test with toy data
+    for waveform in [sine, square, saw]:
+        for sr in samplerates:
+            for f in frequencies:
+                for A in amplitudes:
+
+                    n_samples = sr
+                    x = np.arange(n_samples)
+
+                    # event_audio_list must sum to soundscape_audio: that's
+                    # the precondition peak_limiter relies on (it's how
+                    # scaper builds soundscape_audio in the first place).
+                    event_audio_list = []
+                    for factor in event_factors:
+                        event_audio = waveform(x, f, sr, A * factor)
+                        event_audio_list.append(event_audio.reshape(-1, 1))
+
+                    soundscape_audio = sum(event_audio_list)
+                    max_sample = np.max(np.abs(soundscape_audio))
+
+                    print('\nsr: {}, f: {}, A: {}'.format(sr, f, A))
+                    print('max sample soundscape: {}'.format(max_sample))
+
+                    limited_audio, limited_event_audio_list, scale_factor = \
+                        peak_limiter(soundscape_audio, event_audio_list, sr)
+
+                    print('scale_factor (worst-case gain): {}'.format(scale_factor))
+
+                    # the limiter should never boost gain, only attenuate
+                    assert scale_factor <= 1.0 + 1e-6
+
+                    # no clipping after limiting
+                    max_sample_limited = np.max(np.abs(limited_audio))
+                    print('max sample limited: {}'.format(max_sample_limited))
+                    assert max_sample_limited <= 1.0 + 1e-3
+
+                    # core invariant: sum(events) == soundscape must survive
+                    # limiting, since save_isolated_events relies on it
+                    summed_events = sum(limited_event_audio_list)
+                    assert np.allclose(summed_events, limited_audio, atol=1e-3)
+
+                    # if the soundscape never came close to clipping, the
+                    # limiter should be a no-op
+                    if max_sample <= 1.0:
+                        assert np.allclose(scale_factor, 1.0, atol=1e-3)
+                        assert np.allclose(limited_audio, soundscape_audio, atol=1e-3)

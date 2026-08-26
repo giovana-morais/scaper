@@ -55,6 +55,7 @@ setup(
         "soxbindings>=1.2.2;platform_system!='Windows'",
         'pyloudnorm',
         'soundfile',
+        'pedalboard',
     ],
     extras_require={
         'docs': [

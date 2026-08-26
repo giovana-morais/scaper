@@ -1,5 +1,6 @@
 # CREATED: 4/23/17 15:37 by Justin Salamon <justin.salamon@nyu.edu>
 
+from pedalboard import Pedalboard, Limiter
 import numpy as np
 import pyloudnorm
 import soundfile
@@ -135,3 +136,65 @@ def peak_normalize(soundscape_audio, event_audio_list):
         scaled_event_audio_list.append(event_audio * scale_factor)
 
     return scaled_soundscape_audio, scaled_event_audio_list, scale_factor
+
+
+def peak_limiter(soundscape_audio, event_audio_list, samplerate,
+                  threshold_db=-0.1, release_ms=50.0):
+    """
+    Apply a peak limiter (pedalboard's lookahead ``Limiter``) to the
+    soundscape audio to prevent clipping.
+
+    Parameters
+    ----------
+    soundscape_audio : np.ndarray
+        The soundscape audio.
+    event_audio_list : list
+        List of np.ndarrays containing the audio samples of each isolated
+        foreground event. sum(event_audio_list) must equal
+        soundscape_audio (true by construction in scaper).
+    samplerate : int
+        Sample rate of the audio, required to build the limiter effect.
+    threshold_db : float
+        Ceiling the limiter holds the signal under, in dBFS. Defaults to
+        -0.1, a small safety margin below full scale.
+    release_ms : float
+        How long (in ms) the limiter takes to let go of a gain reduction
+        after a peak has passed. Defaults to 50.
+
+    Returns
+    -------
+    limited_soundscape_audio : np.ndarray
+        The soundscape audio after applying the peak limiter.
+    limited_event_audio_list : list
+        List of np.ndarrays containing the scaled audio samples of each
+        isolated foreground event, scaled by the same per-sample gain
+        envelope applied to the soundscape.
+    scale_factor : float
+        The worst-case (minimum) per-sample gain the limiter applied,
+        i.e. how much the loudest/most-clipped instant was attenuated.
+        1.0 means the limiter never engaged.
+    """
+    eps = 1e-10
+
+    # Limit the mixture -- and only the mixture, since clipping only
+    # exists at the level of the summed signal. pedalboard expects
+    # channels-first (n_channels, n_samples), so transpose in and out.
+    board = Pedalboard([Limiter(threshold_db=threshold_db, release_ms=release_ms)])
+    limited_soundscape_audio = board(
+        soundscape_audio.T.astype(np.float32, order='C'),
+        samplerate,
+    ).T.astype(soundscape_audio.dtype)
+
+    # Recover the per-sample gain the limiter applied, so it can be
+    # reapplied identically (and therefore linearly) to each event.
+    gain_envelope = np.ones_like(soundscape_audio)
+    safe = np.abs(soundscape_audio) > eps  # `True` where amplitdue is not silent.
+    gain_envelope[safe] = limited_soundscape_audio[safe] / soundscape_audio[safe]
+
+    limited_event_audio_list = []
+    for event_audio in event_audio_list:
+        limited_event_audio_list.append(event_audio * gain_envelope)
+
+    scale_factor = float(gain_envelope.min())
+
+    return limited_soundscape_audio, limited_event_audio_list, scale_factor
