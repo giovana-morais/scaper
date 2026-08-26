@@ -1812,6 +1812,7 @@ class Scaper(object):
                         fix_clipping=False,
                         peak_normalization=False,
                         limiter=False,
+                        limiter_gain_envelope_path=None,
                         quick_pitch_time=False,
                         save_isolated_events=False,
                         isolated_events_path=None,
@@ -1856,6 +1857,14 @@ class Scaper(object):
             event to keep `sum(event_audio_list) == soundscape_audio` exactly
             true. See `scaper.audio.peak_normalize` and
             `scaper.audio.peak_limiter` for details.
+        limiter_gain_envelope_path : str or None
+            If given and `limiter=True` actually engages (i.e. `peak_normalization`
+            is True, or `fix_clipping` is True and the mixture clips), the
+            per-sample gain envelope applied by the limiter is written to this
+            path as a float WAV file, so it can be inspected/plotted alongside
+            the mixture as a sanity check on how aggressively the limiter is
+            engaging. Ignored when `limiter=False` or no correction is
+            triggered. See `scaper.audio.peak_limiter`.
         quick_pitch_time : bool
             When True (default=False), time stretching and pitch shifting will be
             applied with `quick=True`. This is much faster but the resultant
@@ -2087,14 +2096,31 @@ class Scaper(object):
                     warnings.warn('Soundscape audio is clipping!',
                                   ScaperWarning)
 
+                if limiter_gain_envelope_path is not None and not (
+                        peak_normalization or (clipping and fix_clipping)):
+                    warnings.warn(
+                        'limiter_gain_envelope_path was specified but neither '
+                        'peak_normalization nor fix_clipping (with actual '
+                        'clipping) triggered a correction, so no gain '
+                        'envelope was produced; nothing was saved.',
+                        ScaperWarning)
+
                 if peak_normalization or (clipping and fix_clipping):
 
                     # correct soundscape audio and scale event audio using
                     # whichever method was requested
                     if limiter:
                         soundscape_audio, event_audio_list, scale_factor = \
-                            peak_limiter(soundscape_audio, event_audio_list, self.sr)
+                            peak_limiter(soundscape_audio, event_audio_list, self.sr,
+                                        envelope_path=limiter_gain_envelope_path)
                     else:
+                        if limiter_gain_envelope_path is not None:
+                            warnings.warn(
+                                'limiter_gain_envelope_path was specified but '
+                                'limiter=False, so no gain envelope was produced '
+                                '(peak_normalize applies a single scalar, not a '
+                                'per-sample envelope); nothing was saved.',
+                                ScaperWarning)
                         soundscape_audio, event_audio_list, scale_factor = \
                             peak_normalize(soundscape_audio, event_audio_list)
 
@@ -2214,6 +2240,7 @@ class Scaper(object):
                  fix_clipping=False,
                  peak_normalization=False,
                  limiter=False,
+                 limiter_gain_envelope_path=None,
                  quick_pitch_time=False,
                  save_isolated_events=False,
                  isolated_events_path=None,
@@ -2280,6 +2307,14 @@ class Scaper(object):
             event to keep `sum(event_audio_list) == soundscape_audio` exactly
             true. See `scaper.audio.peak_normalize` and
             `scaper.audio.peak_limiter` for details.
+        limiter_gain_envelope_path : str or None
+            If given and `limiter=True` actually engages (i.e. `peak_normalization`
+            is True, or `fix_clipping` is True and the mixture clips), the
+            per-sample gain envelope applied by the limiter is written to this
+            path as a float WAV file, so it can be inspected/plotted alongside
+            the mixture as a sanity check on how aggressively the limiter is
+            engaging. Ignored when `limiter=False` or no correction is
+            triggered. See `scaper.audio.peak_limiter`.
         quick_pitch_time : bool
             When True (default=False), time stretching and pitch shifting will be
             applied with `quick=True`. This is much faster but the resultant
@@ -2385,6 +2420,7 @@ class Scaper(object):
                                      fix_clipping=fix_clipping,
                                      peak_normalization=peak_normalization,
                                      limiter=limiter,
+                                     limiter_gain_envelope_path=limiter_gain_envelope_path,
                                      quick_pitch_time=quick_pitch_time)
 
         # TODO: Stick to heavy handed overwriting for now, in the future we
@@ -2397,6 +2433,7 @@ class Scaper(object):
         ann.sandbox.scaper.fix_clipping = fix_clipping
         ann.sandbox.scaper.peak_normalization = peak_normalization
         ann.sandbox.scaper.limiter = limiter
+        ann.sandbox.scaper.limiter_gain_envelope_path = limiter_gain_envelope_path
         ann.sandbox.scaper.quick_pitch_time = quick_pitch_time
         ann.sandbox.scaper.save_isolated_events = save_isolated_events
         ann.sandbox.scaper.isolated_events_path = isolated_events_path

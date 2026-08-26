@@ -139,7 +139,7 @@ def peak_normalize(soundscape_audio, event_audio_list):
 
 
 def peak_limiter(soundscape_audio, event_audio_list, samplerate,
-                  threshold_db=-0.1, release_ms=50.0):
+                  threshold_db=-0.1, release_ms=50.0, envelope_path=None):
     """
     Apply a peak limiter (pedalboard's lookahead ``Limiter``) to the
     soundscape audio to prevent clipping.
@@ -160,6 +160,13 @@ def peak_limiter(soundscape_audio, event_audio_list, samplerate,
     release_ms : float
         How long (in ms) the limiter takes to let go of a gain reduction
         after a peak has passed. Defaults to 50.
+    envelope_path : str or None
+        If given, the per-sample gain envelope (same shape/samplerate as
+        ``soundscape_audio``, values in (0, 1]) is written to this path as
+        a float WAV file, so it can be inspected/plotted alongside the
+        mixture (e.g. to sanity-check how aggressively the limiter is
+        engaging). Not used anywhere else in scaper. Defaults to None
+        (not saved).
 
     Returns
     -------
@@ -190,6 +197,9 @@ def peak_limiter(soundscape_audio, event_audio_list, samplerate,
     gain_envelope = np.ones_like(soundscape_audio)
     safe = np.abs(soundscape_audio) > eps  # `True` where amplitdue is not silent.
     gain_envelope[safe] = limited_soundscape_audio[safe] / soundscape_audio[safe]
+
+    if envelope_path is not None:
+        soundfile.write(envelope_path, gain_envelope, samplerate, subtype='FLOAT')
 
     limited_event_audio_list = []
     for event_audio in event_audio_list:
